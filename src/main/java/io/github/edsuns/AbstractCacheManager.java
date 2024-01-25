@@ -63,7 +63,7 @@ public abstract class AbstractCacheManager<X, ID> implements CacheManager<X, ID>
     }
 
     @Override
-    public void invalidateUpdated() {
+    public void scheduledInvalidateUpdated() {
         String millisKey = getInvalidateUpdatedKey();
         long lastInvalidatedAt = storage.getTimestampMillis(millisKey);
         long now = System.currentTimeMillis();

@@ -24,7 +24,7 @@ public interface CacheManager<X, ID> {
         updateByIds(nullValues);
     }
 
-    void invalidateUpdated();
+    void scheduledInvalidateUpdated();
 
     void delete(Collection<ID> ids);
 }

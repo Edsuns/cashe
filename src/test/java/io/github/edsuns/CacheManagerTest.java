@@ -140,7 +140,7 @@ class CacheManagerTest {
         database.update(new HashMap<>() {{
             put(2L, new Book(2L, "book2_2"));
         }});
-        bookCacheManager.invalidateUpdated();
+        bookCacheManager.scheduledInvalidateUpdated();
         List<Book> books1 = bookCacheManager.getByIds(Collections.singletonList(2L));
         assertEquals(1, books1.size());
         assertEquals(new Book(2L, "book2_2"), books1.get(0));
