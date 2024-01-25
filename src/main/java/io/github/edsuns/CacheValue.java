@@ -11,7 +11,8 @@ import java.io.Serializable;
 @ParametersAreNonnullByDefault
 public interface CacheValue extends Serializable {
 
-    int getVersion();
+    @Nullable
+    Integer getVersion();
 
     @Nullable
     Object getValue();

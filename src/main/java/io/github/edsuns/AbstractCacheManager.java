@@ -86,7 +86,7 @@ public abstract class AbstractCacheManager<X, ID> implements CacheManager<X, ID>
                 .collect(Collectors.toMap(
                                 x -> composeKey(x.getKey()),
                                 x -> new SimpleCacheValue(
-                                        Optional.ofNullable(x.getValue()).map(CacheValue::getVersion).orElse(1),
+                                        Optional.ofNullable(x.getValue()).map(CacheValue::getVersion).orElse(null),
                                         after.get(x.getKey()),// nullable
                                         true)
                         )

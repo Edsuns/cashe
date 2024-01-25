@@ -13,7 +13,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public class SimpleCacheValue implements CacheValue {
     private static final long serialVersionUID = -8366514726030005449L;
 
-    private int version;
+    @Nullable
+    private Integer version;
     @Nullable
     private Object value;
     private boolean isHit;
@@ -21,18 +22,19 @@ public class SimpleCacheValue implements CacheValue {
     public SimpleCacheValue() {
     }
 
-    public SimpleCacheValue(int version, @Nullable Object value, boolean isHit) {
+    public SimpleCacheValue(@Nullable Integer version, @Nullable Object value, boolean isHit) {
         this.version = version;
         this.value = value;
         this.isHit = isHit;
     }
 
+    @Nullable
     @Override
-    public int getVersion() {
+    public Integer getVersion() {
         return version;
     }
 
-    public void setVersion(int version) {
+    public void setVersion(@Nullable Integer version) {
         this.version = version;
     }
 

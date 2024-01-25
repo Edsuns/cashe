@@ -3,7 +3,7 @@ local versions = redis.call('MGET', unpack(KEYS, half + 1, #KEYS))
 local failedKeys = {}
 for i = 1, #versions do
   local version = tonumber(versions[i])
-  if tonumber(ARGV[half + i]) == version or version == nil then
+  if tonumber(ARGV[half + i]) == version then
     redis.call('SET', KEYS[i], ARGV[i])
     if version == 9223372036854775807 then
       -- prevent overflow
