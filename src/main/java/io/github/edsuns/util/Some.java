@@ -2,6 +2,7 @@ package io.github.edsuns.util;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -9,7 +10,9 @@ import java.util.Objects;
  * @since 2024/1/24 16:17
  */
 @ParametersAreNonnullByDefault
-public class Some {
+public class Some implements Serializable {
+    private static final long serialVersionUID = -6671049155958388891L;
+
     @Nullable
     private Object value;
 

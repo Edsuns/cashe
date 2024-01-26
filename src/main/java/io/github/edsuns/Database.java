@@ -22,4 +22,6 @@ public interface Database<X, ID> {
     List<ID> getIdsByUpdatedAtBetween(long start, long end);
 
     Map<ID, X> getByUpdatedAtBetween(long start, long end);
+
+    String getEntityName();
 }

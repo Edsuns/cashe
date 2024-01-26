@@ -105,17 +105,9 @@ class CacheManagerTest {
         public Map<Long, Book> getByUpdatedAtBetween(long start, long end) {
             return load(Collections.singletonList(2L));
         }
-    }
-
-    @ParametersAreNonnullByDefault
-    public static class BookCacheManager extends AbstractCacheManager<Book, Long> {
-
-        public BookCacheManager(CacheStorage storage, Database<Book, Long> database) {
-            super(storage, database);
-        }
 
         @Override
-        protected String getEntityName() {
+        public String getEntityName() {
             return "book";
         }
     }
@@ -123,7 +115,7 @@ class CacheManagerTest {
     private final RedisConnectionFactory connectionFactory = getConnectionFactory();
     private final CacheStorage storage = new RedisCacheStorage(connectionFactory);
     private final BookDatabase database = new BookDatabase();
-    private final BookCacheManager bookCacheManager = new BookCacheManager(storage, database);
+    private final CacheManager<Book, Long> bookCacheManager = new CacheManagerImpl<>(storage, database);
 
     @Test
     void test() {

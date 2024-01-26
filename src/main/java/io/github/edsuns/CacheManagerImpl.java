@@ -13,14 +13,19 @@ import java.util.stream.Collectors;
  * @since 2024/1/23 11:56
  */
 @ParametersAreNonnullByDefault
-public abstract class AbstractCacheManager<X, ID> implements CacheManager<X, ID> {
+public class CacheManagerImpl<X, ID> implements CacheManager<X, ID> {
     protected final CacheStorage storage;
     protected final Database<X, ID> database;
-    protected final SingleFlight<Collection<ID>> single = new SingleFlight<>();
+    protected final SingleFlight<Collection<ID>> single;
 
-    public AbstractCacheManager(CacheStorage storage, Database<X, ID> database) {
+    public CacheManagerImpl(CacheStorage storage, Database<X, ID> database) {
+        this(storage, database, new SingleFlight<>());
+    }
+
+    public CacheManagerImpl(CacheStorage storage, Database<X, ID> database, SingleFlight<Collection<ID>> single) {
         this.storage = storage;
         this.database = database;
+        this.single = single;
     }
 
     @Override
@@ -55,9 +60,7 @@ public abstract class AbstractCacheManager<X, ID> implements CacheManager<X, ID>
 
     @Override
     public void updateByIds(Map<ID, X> idEntities) {
-        List<ID> ids = new ArrayList<>(idEntities.keySet());
-
-        Map<ID, CacheValue> versionMap = getIdValueMap(ids);
+        Map<ID, CacheValue> versionMap = getIdValueMap(idEntities.keySet());
         database.update(idEntities);
         storage.invalidate(storage.put(values(versionMap, idEntities)));
     }
@@ -103,7 +106,7 @@ public abstract class AbstractCacheManager<X, ID> implements CacheManager<X, ID>
     }
 
     protected String getInvalidateUpdatedKey() {
-        return getCacheKeyPrefix() + ":" + getEntityName() + ":_millis_";
+        return getCacheKeyPrefix() + ":" + database.getEntityName() + ":_millis_";
     }
 
     protected List<String> composeKey(Collection<ID> ids) {
@@ -111,13 +114,11 @@ public abstract class AbstractCacheManager<X, ID> implements CacheManager<X, ID>
     }
 
     protected String composeKey(ID id) {
-        return getCacheKeyPrefix() + ":" + getEntityName() + ":" + id;
+        return getCacheKeyPrefix() + ":" + database.getEntityName() + ":" + id;
     }
 
     protected String getCacheKeyPrefix() {
         return "cashe";
     }
-
-    protected abstract String getEntityName();
 
 }
