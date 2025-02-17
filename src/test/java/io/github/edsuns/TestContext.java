@@ -17,7 +17,7 @@ public class TestContext {
     private final RedisConnectionFactory connectionFactory = getConnectionFactory();
     private final CacheStorage storage = new RedisCacheStorage(connectionFactory);
     private final CacheManagerTest.BookDatabase database = new CacheManagerTest.BookDatabase();
-    private final CacheManager<CacheManagerTest.Book, Long> bookCacheManager = new CacheManagerImpl<>(storage, database);
+    private final CacheManager<CacheManagerTest.Book, Long> bookCacheManager = new CacheManagerImpl<>(storage, database, CacheManagerTest.Book::getId);
     private final RedisTemplate<String, Object> redis = createRedisTemplate(getConnectionFactory());
 
     public CacheStorage getStorage() {

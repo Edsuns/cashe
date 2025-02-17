@@ -2,9 +2,7 @@ package io.github.edsuns;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * @author edsuns@qq.com
@@ -14,17 +12,16 @@ import java.util.Map;
 public interface CacheManager<X, ID> {
     List<X> getByIds(Collection<ID> ids);
 
-    void updateByIds(Map<ID, X> idEntities);
+    void updateByIds(Collection<X> entities);
 
-    default void setNulls(Collection<ID> ids) {
-        Map<ID, X> nullValues = new HashMap<>();
-        for (ID id : ids) {
-            nullValues.put(id, null);
-        }
-        updateByIds(nullValues);
-    }
-
-    void scheduledInvalidateUpdated();
+    /**
+     * Sets null cache when delete data.
+     */
+    void setNulls(Collection<ID> ids);
 
     void delete(Collection<ID> ids);
+
+    void scheduledRefreshUpdated();
+
+    void scheduledRefreshAll();
 }

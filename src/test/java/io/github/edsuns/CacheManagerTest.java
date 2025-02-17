@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -67,36 +66,27 @@ class CacheManagerTest {
 
     @ParametersAreNonnullByDefault
     public static class BookDatabase implements Database<Book, Long> {
-        private final Map<Long, Book> database = new HashMap<>() {{
-            put(1L, new Book(1L, "book1"));
-            put(2L, new Book(2L, "book2"));
-        }};
+        private final List<Book> database = Arrays.asList(new Book(1L, "book1"), new Book(2L, "book2"));
 
         @Override
-        public Map<Long, Book> load(Collection<Long> ids) {
-            return database.entrySet().stream().filter(x -> ids.contains(x.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        public List<Book> load(Collection<Long> ids) {
+            return database;
         }
 
         @Override
-        public void update(Map<Long, Book> idEntities) {
-            for (Map.Entry<Long, Book> entry : idEntities.entrySet()) {
-                if (entry.getValue() == null) {
-                    database.remove(entry.getKey());
-                } else {
-                    database.put(entry.getKey(), entry.getValue());
+        public void update(Collection<Book> entities) {
+            for (Book book : database) {
+                for (Book target : entities) {
+                    if (Objects.equals(book.getId(), target.getId())) {
+                        book.setName(target.getName());
+                    }
                 }
             }
         }
 
         @Override
-        public List<Long> getIdsByUpdatedAtBetween(long start, long end) {
+        public List<Long> getIdsByUpdatedBetween(long start, long end) {
             return Collections.singletonList(2L);
-        }
-
-        @Override
-        public Map<Long, Book> getByUpdatedAtBetween(long start, long end) {
-            return load(Collections.singletonList(2L));
         }
 
         @Override
@@ -118,10 +108,8 @@ class CacheManagerTest {
         assertEquals(1, books.size());
         assertEquals(new Book(2L, "book2"), books.get(0));
 
-        testContext.getDatabase().update(new HashMap<>() {{
-            put(2L, new Book(2L, "book2_2"));
-        }});
-        testContext.getBookCacheManager().scheduledInvalidateUpdated();
+        testContext.getDatabase().update(Collections.singletonList(new Book(2L, "book2_2")));
+        testContext.getBookCacheManager().scheduledRefreshUpdated();
         List<Book> books1 = testContext.getBookCacheManager().getByIds(Collections.singletonList(2L));
         assertEquals(1, books1.size());
         assertEquals(new Book(2L, "book2_2"), books1.get(0));
@@ -134,14 +122,12 @@ class CacheManagerTest {
         assertEquals(new Some(null), testContext.getRedis().opsForValue().get(keyValue));
         assertEquals(3, testContext.getRedis().opsForValue().get(keyVersion));
 
-        testContext.getBookCacheManager().updateByIds(new HashMap<>() {{
-            put(2L, new Book(2L, "book2_3"));
-        }});
+        testContext.getBookCacheManager().updateByIds(Collections.singletonList(new Book(2L, "book2_3")));
         assertEquals(new Some(new Book(2L, "book2_3")), testContext.getRedis().opsForValue().get(keyValue));
-        testContext.getStorage().invalidate(Collections.singletonList(keyValue));
+        testContext.getStorage().delete(Collections.singletonList(keyValue));
 
         assertNull(testContext.getRedis().opsForValue().get(keyValue));
-        assertEquals(5, testContext.getRedis().opsForValue().get(keyVersion));
+        assertNull(testContext.getRedis().opsForValue().get(keyVersion));
 
         // rollback
         testContext.getBookCacheManager().delete(Collections.singletonList(2L));

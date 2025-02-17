@@ -25,8 +25,6 @@ public interface CacheStorage {
      */
     List<CacheValue> get(Collection<String> keys);
 
-    void invalidate(Collection<String> keys);
-
     void delete(Collection<String> keys);
 
     void saveTimestampMillis(String key, long timeMillis);

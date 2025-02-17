@@ -28,13 +28,11 @@ public class RedisCacheStorage implements CacheStorage {
 
     private final RedisScript<Object[][]> luaGetVersionedValues;
     private final RedisScript<String[]> luaPutVersionedValues;
-    private final RedisScript<Long> luaClearValuesIncrVersions;
 
     public RedisCacheStorage(RedisConnectionFactory connectionFactory) {
         this.redisTemplate = createRedisTemplate(connectionFactory);
         this.luaGetVersionedValues = RedisScript.of(getResourceAsString("scripts/get_versioned_values.lua"), Object[][].class);
         this.luaPutVersionedValues = RedisScript.of(getResourceAsString("scripts/put_versioned_values.lua"), String[].class);
-        this.luaClearValuesIncrVersions = RedisScript.of(getResourceAsString("scripts/clear_values_incr_versions.lua"), Long.class);
     }
 
     private static RedisTemplate<String, Object> createRedisTemplate(RedisConnectionFactory connectionFactory) {
@@ -82,23 +80,15 @@ public class RedisCacheStorage implements CacheStorage {
                     SimpleCacheValue cached = new SimpleCacheValue();
                     if (some != null) {
                         cached.setValue(some.getValue());
-                        cached.setHit(true);
                     }
                     Object version = x[1];
                     if (version != null) {
                         cached.setVersion((int) version);
                     }
+                    cached.setNullCache(some == null);
                     return cached;
                 })
                 .collect(Collectors.toList());
-    }
-
-    @Override
-    public void invalidate(Collection<String> keys) {
-        if (keys.isEmpty()) {
-            return;
-        }
-        redisTemplate.execute(luaClearValuesIncrVersions, keysAndVersions(keys));
     }
 
     @Override

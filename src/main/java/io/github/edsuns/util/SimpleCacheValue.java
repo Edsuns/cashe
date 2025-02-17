@@ -17,15 +17,15 @@ public class SimpleCacheValue implements CacheValue {
     private Integer version;
     @Nullable
     private Object value;
-    private boolean isHit;
+    private boolean isNullCache;
 
     public SimpleCacheValue() {
     }
 
-    public SimpleCacheValue(@Nullable Integer version, @Nullable Object value, boolean isHit) {
+    public SimpleCacheValue(@Nullable Integer version, @Nullable Object value) {
         this.version = version;
         this.value = value;
-        this.isHit = isHit;
+        this.isNullCache = value == null;
     }
 
     @Nullable
@@ -49,12 +49,12 @@ public class SimpleCacheValue implements CacheValue {
     }
 
     @Override
-    public boolean isHit() {
-        return isHit;
+    public boolean isNullCache() {
+        return isNullCache;
     }
 
-    public void setHit(boolean hit) {
-        isHit = hit;
+    public void setNullCache(boolean nullCache) {
+        isNullCache = nullCache;
     }
 
 }

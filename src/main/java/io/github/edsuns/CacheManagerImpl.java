@@ -6,6 +6,7 @@ import io.github.edsuns.util.SingleFlight;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -14,17 +15,20 @@ import java.util.stream.Collectors;
  */
 @ParametersAreNonnullByDefault
 public class CacheManagerImpl<X, ID> implements CacheManager<X, ID> {
-    protected final CacheStorage storage;
+    protected final CacheStorage cacheStorage;
     protected final Database<X, ID> database;
+    protected final Function<X, ID> idGetter;
     protected final SingleFlight<Collection<ID>> single;
 
-    public CacheManagerImpl(CacheStorage storage, Database<X, ID> database) {
-        this(storage, database, new SingleFlight<>());
+    public CacheManagerImpl(CacheStorage cacheStorage, Database<X, ID> database, Function<X, ID> idGetter) {
+        this(cacheStorage, database, idGetter, new SingleFlight<>());
     }
 
-    public CacheManagerImpl(CacheStorage storage, Database<X, ID> database, SingleFlight<Collection<ID>> single) {
-        this.storage = storage;
+    public CacheManagerImpl(CacheStorage cacheStorage, Database<X, ID> database,
+                            Function<X, ID> idGetter, SingleFlight<Collection<ID>> single) {
+        this.cacheStorage = cacheStorage;
         this.database = database;
+        this.idGetter = idGetter;
         this.single = single;
     }
 
@@ -36,7 +40,7 @@ public class CacheManagerImpl<X, ID> implements CacheManager<X, ID> {
         for (ID id : ids) {
             @Nullable
             CacheValue cache = cacheMap.get(id);
-            if (cache != null && cache.isHit()) {
+            if (cache != null && !cache.isNullCache()) {
                 @Nullable
                 @SuppressWarnings("unchecked")
                 X x = (X) cache.getValue();
@@ -50,54 +54,67 @@ public class CacheManagerImpl<X, ID> implements CacheManager<X, ID> {
         }
         if (unCached != null && !unCached.isEmpty()) {
             final Set<ID> unCachedIds = unCached.keySet();
-            Map<ID, X> data = single.call(unCachedIds, () -> database.load(unCachedIds));
+            List<X> data = single.call(unCachedIds, () -> database.load(unCachedIds));
             // un-cached id that has no data will be cached by a null value
-            storage.put(values(unCached, data));
-            result.putAll(data);
+            cacheStorage.put(values(unCached, data));
+            data.forEach(x -> result.put(idGetter.apply(x), x));
         }
         return ids.stream().map(result::get).collect(Collectors.toList());
     }
 
     @Override
-    public void updateByIds(Map<ID, X> idEntities) {
-        Map<ID, CacheValue> versionMap = getIdValueMap(idEntities.keySet());
-        database.update(idEntities);
-        storage.invalidate(storage.put(values(versionMap, idEntities)));
+    public void updateByIds(Collection<X> entities) {
+        Map<ID, CacheValue> versionMap = getIdValueMap(entities.stream().map(idGetter).collect(Collectors.toList()));
+        database.update(entities);
+        cacheStorage.delete(cacheStorage.put(values(versionMap, entities)));
     }
 
     @Override
-    public void scheduledInvalidateUpdated() {
-        String millisKey = getInvalidateUpdatedKey();
-        long lastInvalidatedAt = storage.getTimestampMillis(millisKey);
-        long now = System.currentTimeMillis();
-        // query
-        List<ID> ids = database.getIdsByUpdatedAtBetween(lastInvalidatedAt, now);
+    public void setNulls(Collection<ID> ids) {
         Map<ID, CacheValue> versionMap = getIdValueMap(ids);
-        // query second time
-        Map<ID, ?> data = database.getByUpdatedAtBetween(lastInvalidatedAt, now);
-        storage.invalidate(storage.put(values(versionMap, data)));
-        storage.saveTimestampMillis(millisKey, now);
+        cacheStorage.delete(cacheStorage.put(values(versionMap, Collections.emptyList())));
     }
 
     @Override
     public void delete(Collection<ID> ids) {
-        storage.delete(composeKey(ids));
+        cacheStorage.delete(composeKey(ids));
     }
 
-    private Map<String, CacheValue> values(Map<ID, CacheValue> before, Map<ID, ?> after) {
-        return before.entrySet().stream()
-                .collect(Collectors.toMap(
-                                x -> composeKey(x.getKey()),
-                                x -> new SimpleCacheValue(
-                                        Optional.ofNullable(x.getValue()).map(CacheValue::getVersion).orElse(null),
-                                        after.get(x.getKey()),// nullable
-                                        true)
-                        )
-                );
+    @Override
+    public void scheduledRefreshUpdated() {
+        String millisKey = getInvalidateUpdatedKey();
+        long lastInvalidatedAt = cacheStorage.getTimestampMillis(millisKey);
+        long now = System.currentTimeMillis();
+        List<ID> ids = database.getIdsByUpdatedBetween(lastInvalidatedAt, now);
+        // begin CAS scope
+        Map<ID, CacheValue> versionMap = getIdValueMap(ids);
+        List<X> data = database.load(ids);
+        cacheStorage.delete(cacheStorage.put(values(versionMap, data)));
+        cacheStorage.saveTimestampMillis(millisKey, now);
+    }
+
+    @Override
+    public void scheduledRefreshAll() {
+        // TODO
+        throw new UnsupportedOperationException("TODO");
+    }
+
+    private Map<String, CacheValue> values(Map<ID, CacheValue> before, Collection<X> after) {
+        Map<ID, X> afterMap = after.stream().collect(Collectors.toMap(idGetter, Function.identity(), (a, b) -> b));
+        Map<String, CacheValue> result = new HashMap<>((int) (after.size() / .75 + 1));
+        for (Map.Entry<ID, CacheValue> entry : before.entrySet()) {
+            ID id = entry.getKey();
+            String key = composeKey(id);
+            X value = afterMap.get(id);// nullable
+            result.put(key, new SimpleCacheValue(
+                    Optional.ofNullable(entry.getValue()).map(CacheValue::getVersion).orElse(null),// initial null
+                    value));
+        }
+        return result;
     }
 
     private Map<ID, CacheValue> getIdValueMap(Collection<ID> ids) {
-        Iterator<CacheValue> it = storage.get(composeKey(ids)).iterator();
+        Iterator<CacheValue> it = cacheStorage.get(composeKey(ids)).iterator();
         Map<ID, CacheValue> cacheMap = new HashMap<>();
         for (ID id : ids) {
             cacheMap.put(id, it.hasNext() ? it.next() : null);

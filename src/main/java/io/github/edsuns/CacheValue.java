@@ -17,5 +17,5 @@ public interface CacheValue extends Serializable {
     @Nullable
     Object getValue();
 
-    boolean isHit();
+    boolean isNullCache();
 }
